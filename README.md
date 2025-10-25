@@ -60,7 +60,6 @@ The system prepares the image for analysis by:
 ### Feature Extraction (CNN)
 
 A Convolutional Neural Network analyzes the image to detect and extract key features such as:
-
 - Feather patterns
 - Comb size
 - Body proportions
