@@ -47,3 +47,38 @@ _AI Concepts Used Summary:_
 - **Decision Component** - Classifies chickens into age categories and provides care recommendations.
 
 
+
+_System Architecture Flowchart – ChickAge AI Process:_
+
+- User uploads a chicken image through the application interface.
+
+The system prepares the image for analysis by:
+          - Resizing and normalizing
+          -  Removing noise
+          - Enhancing color and clarity
+
+_Feature Extraction (CNN):_
+
+A Convolutional Neural Network analyzes the image to detect and extract key features such as:
+
+- Feather patterns
+- Comb size
+- Body proportions
+- Color variations
+
+_Model Prediction:_
+The CNN model uses supervised learning to estimate the chicken’s age based on extracted features.
+Decision & Classification
+The system classifies the chicken into one of three categories:
+ 🐣 Chick 
+🐥 Juvenile 
+🐔 Adult
+
+ It also calculates the confidence level of the prediction.
+
+_Output Generation:_
+- Results are displayed to the user including:
+- Estimated age and category
+- Confidence level
+- Feeding or care recommendations
+- Option to save results to a file
