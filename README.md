@@ -1,11 +1,10 @@
+# **ChickAge: Estimating the Age of Chickens Using Image Processing**
+
 Members:
 Follante, Adrian Paolo S.
 Manalo, Ram Andrei M.
 Ramos, Renzo Emmanuel V.
 Unido, Jem Arden 
-
-**ChickAge: Estimating the Age of Chickens Using Image Processing**
-
 
 **Problem Description**
 
