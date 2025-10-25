@@ -16,25 +16,24 @@ To address this issue, we propose an intelligent application that estimates the 
 
 ## **PEAS Model**
 ### Performance Measure
-Accuracy of predicted chicken age compared to actual age
-Classify the chicken into their predicted age category: Chick, Juvenile, or Adult
-Fast processing time of image analyzation
-Ability to process different chicken breeds, lighting conditions, and camera angles
+- Accuracy of predicted chicken age compared to actual age
+- Classify the chicken into their predicted age category: Chick, Juvenile, or Adult
+- Fast processing time of image analyzation
+- Ability to process different chicken breeds, lighting conditions, and camera angles
 
 ### Environment
-Virtual environment running on a computer
-User uploads a chicken image as input
+- Virtual environment running on a computer
+- User uploads a chicken image as input
 
 ### Actuators
-Displays estimated age and age category of the chicken
-Shows confidence level of the prediction
-Provides feeding or care instructions based on age
-Saves the results to a file
+- Displays estimated age and age category of the chicken
+- Shows confidence level of the prediction
+- Provides feeding or care instructions based on age
+- Saves the results to a file
 
 ### Sensors
-Image attached by the user
-Extracts visual features such as feathers, body size, comb growth, etc.
-
+- Image attached by the user
+- Extracts visual features such as feathers, body size, comb growth, etc.
 
 ## **AI Concepts Used**
 
