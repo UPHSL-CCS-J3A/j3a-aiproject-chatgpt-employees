@@ -46,9 +46,9 @@ _AI Concepts Used Summary:_
 - **Optimization Strategy**  - Minimizes prediction errors during training to improve accuracy.
 - **Decision Component** - Classifies chickens into age categories and provides care recommendations.
 
-
-
 ## **System Architecture Flowchart**
+
+![ChickAge System Flowchart](https://github.com/UPHSL-CCS-J3A/j3a-aiproject-chatgpt-employees/blob/aba3f839ee27027e7603d46f27f02301ef391b64/System%20Flowchart.png)
 
 ### User Input
 - User uploads a chicken image through the application interface.
