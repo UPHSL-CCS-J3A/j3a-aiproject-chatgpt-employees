@@ -41,8 +41,11 @@ The AI concept implemented in “ChickAge: Estimating the Age of Chickens Using 
 
 
 _AI Concepts Used Summary:_
+
 - **Learning Agen**t - The system learns from chicken images to estimate age accurately. Uses a Convolutional Neural Network to recognize visual patterns like feathers, size, and color.
+
 - **Optimization Strategy**  - Minimizes prediction errors during training to improve accuracy.
+
 - **Decision Component** - Classifies chickens into age categories and provides care recommendations.
 
 
