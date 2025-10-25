@@ -50,15 +50,16 @@ _AI Concepts Used Summary:_
 
 ## **System Architecture Flowchart**
 
+### User Input
 - User uploads a chicken image through the application interface.
 
+### Image Preprocessing
 The system prepares the image for analysis by:
-          - Resizing and normalizing
-          -  Removing noise
-          - Enhancing color and clarity
+- Resizing and normalizing
+- Removing noise
+- Enhancing color and clarity
 
 ### Feature Extraction (CNN)
-
 A Convolutional Neural Network analyzes the image to detect and extract key features such as:
 - Feather patterns
 - Comb size
@@ -67,7 +68,7 @@ A Convolutional Neural Network analyzes the image to detect and extract key feat
 
 ### Model Prediction
 The CNN model uses supervised learning to estimate the chicken’s age based on extracted features.
-Decision & Classification
+
 The system classifies the chicken into one of three categories:
 - 🐣 Chick 
 - 🐥 Juvenile 
