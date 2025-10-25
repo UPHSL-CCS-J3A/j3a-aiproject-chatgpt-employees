@@ -48,7 +48,7 @@ _AI Concepts Used Summary:_
 
 
 
-_System Architecture Flowchart – ChickAge AI Process:_
+## **System Architecture Flowchart**
 
 - User uploads a chicken image through the application interface.
 
@@ -57,7 +57,7 @@ The system prepares the image for analysis by:
           -  Removing noise
           - Enhancing color and clarity
 
-_Feature Extraction (CNN):_
+### Feature Extraction (CNN)
 
 A Convolutional Neural Network analyzes the image to detect and extract key features such as:
 
@@ -66,17 +66,17 @@ A Convolutional Neural Network analyzes the image to detect and extract key feat
 - Body proportions
 - Color variations
 
-_Model Prediction:_
+### Model Prediction
 The CNN model uses supervised learning to estimate the chicken’s age based on extracted features.
 Decision & Classification
 The system classifies the chicken into one of three categories:
- 🐣 Chick 
-🐥 Juvenile 
-🐔 Adult
+- 🐣 Chick 
+- 🐥 Juvenile 
+- 🐔 Adult
 
  It also calculates the confidence level of the prediction.
 
-_Output Generation:_
+### Output Generation
 - Results are displayed to the user including:
 - Estimated age and category
 - Confidence level
