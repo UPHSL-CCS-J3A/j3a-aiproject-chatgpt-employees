@@ -1,4 +1,4 @@
-# **ChickAge: Estimating the Age of Chickens Using Image Processing**
+# **FaceAge: Enhanced Facial Age Estimation using Image Processing**
 
 ### Members:
 - Follante, Adrian Paolo S.
@@ -8,77 +8,78 @@
 
 ## **Problem Description**
 
-In the poultry industry, determining the accurate age of chickens is essential for managing feeding schedules, monitoring growth, and maintaining overall flock health. However, current methods often rely on manual observation, which is time-consuming, inconsistent, and dependent on human expertise. This lack of precision can lead to inefficiencies in farm management and affect production quality.
+Accurately determining a person’s age is important in various fields, such as identity verification, security protocols, healthcare assessments, and personalized digital services. However, current age estimation practices often rely on manual visual inspection of facial features, which can be time-consuming, subjective, and inconsistent. This can lead to inefficient decision-making and unreliable age estimation systems.
 
 ## **Proposed Solution Overview**
 
-To address this issue, we propose an intelligent application that estimates the age of chickens through image analysis. The system will utilize a Convolutional Neural Network (CNN) to automatically extract and analyze visual features such as feather patterns, body size, and color changes from chicken images. By applying deep learning techniques, the application aims to deliver accurate, fast, and consistent age estimations, reducing human error and enhancing productivity in poultry operations.
+To address this issue, we propose an intelligent application that estimates the age of human faces through image analysis. The system will utilize a Convolutional Neural Network (CNN) to automatically extract and analyze visual features such as wrinkles, skin texture, bone structure, and facial geometry. By applying deep learning techniques, the application aims to deliver accurate, fast, and consistent age estimations, reducing human error and enhancing productivity in various operations. As an extra feature, we also added a skin condition detection feature, which could help in predicting possible skin diseases that a person may have.
 
 ## **PEAS Model**
 ### Performance Measure
-- Accuracy of predicted chicken age compared to actual age
-- Classify the chicken into their predicted age category: Chick, Juvenile, or Adult
-- Fast processing time of image analyzation
-- Ability to process different chicken breeds, lighting conditions, and camera angles
+- Accuracy of predicted age compared to actual age
+- Classify the human face into their predicted age category: Infant (Birth to 12 months), Toddler (1-3), Child (4-12) Teen (13-19), Adult (20-59), and Senior (60 and above)
+- Fast processing time of image analyzation using webcam and uploaded images
+- Ability to process different ethnicities, skin conditions, skin tones, and lighting conditions
+- High confidence score for each prediction
 
 ### Environment
-- Virtual environment running on a computer
-- User uploads a chicken image as input
+- Virtual environment running on a computer or laptop
+- Accepts two input environments:
+- Real-time webcam feed
+- Uploaded facial image
+
 
 ### Actuators
-- Displays estimated age and age category of the chicken
-- Shows confidence level of the prediction
-- Provides feeding or care instructions based on age
-- Saves the results to a file
+- Displays the estimated age of the human
+- Shows age group classification
+- Displays confidence level of the prediction
+- Displays possible skin condition
+- Optionally saves the results to a file
 
 ### Sensors
-- Image attached by the user
-- Extracts visual features such as feathers, body size, comb growth, etc.
+- Webcam stream for real-time face capture
+- Image uploaded manually by the user
+- Face detection system (Haar Cascade, HOG, CNN-based detectors)
+- Feature extraction tools (landmarks, embeddings, texture detectors)
 
 ## **AI Concepts Used**
 
-The AI concept implemented in “ChickAge: Estimating the Age of Chickens Using Image Processing”  is primarily a learning agent, as the system is capable of learning from chicken images to estimate their age with precision. It employs supervised learning through a Convolutional Neural Network, enabling it to identify patterns such as feather development, body size, and color variations. During the training process, the system utilizes optimization strategies to enhance prediction accuracy by minimizing errors. Upon analyzing an image, the system makes a decision by classifying the chicken into an appropriate age category and providing relevant recommendations for feeding or care. This methodology ensures that ChickAge operates efficiently, consistently, and reliably, thereby reducing human error and supporting more effective poultry management.
+The AI concepts implemented in FaceAge: Enhanced Facial Age Estimation Using Image Processing revolve around enabling the system to learn from facial images to accurately estimate a person's age. By utilizing supervised learning techniques, the system is trained on labeled facial data to detect and interpret age-related features, such as skin texture, wrinkles, facial geometry, and other visual cues. The core of the system is a Convolutional Neural Network (CNN), which learns patterns in the facial features that correspond to different age groups.
 
+During training, the system applies optimization strategies like gradient descent to minimize errors and improve the model's predictive accuracy. Once trained, the system processes an input facial image, extracts relevant features, and either predicts the person's exact age or classifies them into an appropriate age range. This process ensures fast, consistent, and reliable results, reducing human bias and increasing efficiency across applications in areas such as security, healthcare, and digital services.
 
 _AI Concepts Used Summary:_
 
-- **Learning Agen**t - The system learns from chicken images to estimate age accurately. Uses a Convolutional Neural Network to recognize visual patterns like feathers, size, and color.
-- **Optimization Strategy**  - Minimizes prediction errors during training to improve accuracy.
-- **Decision Component** - Classifies chickens into age categories and provides care recommendations.
+- **Learning Agent** - The system learns from facial images to estimate age by analyzing patterns related to skin texture, wrinkles, and facial structure.
+- **Optimization Strategy**  - Implements optimization techniques (e.g., gradient descent) to minimize prediction errors and enhance model accuracy during training.
+- **Decision Component** - The system classifies individuals into age groups or predicts an exact age, offering reliable and fast age estimation for real-world applications.
 
 ## **System Architecture Flowchart**
 
-![ChickAge System Flowchart](https://github.com/UPHSL-CCS-J3A/j3a-aiproject-chatgpt-employees/blob/aba3f839ee27027e7603d46f27f02301ef391b64/System%20Flowchart.png)
+<img width="189" height="605" alt="image" src="https://github.com/user-attachments/assets/37bda7b3-c12e-488f-81f8-b87f03d05bac" />
 
 ### User Input
-- User uploads a chicken image through the application interface.
+- User Uploads Image or Webcam Feed
 
 ### Image Preprocessing
-The system prepares the image for analysis by:
-- Resizing and normalizing
-- Removing noise
-- Enhancing color and clarity
+- Resize / Normalize
+- Face Detection (e.g., Haar, MTCNN)
 
 ### Feature Extraction (CNN)
 A Convolutional Neural Network analyzes the image to detect and extract key features such as:
-- Feather patterns
-- Comb size
-- Body proportions
-- Color variations
+- Detect facial features (wrinkles, skin texture, geometry)
+- Extract relevant visual patterns for age estimation
 
 ### Model Prediction
-The CNN model uses supervised learning to estimate the chicken’s age based on extracted features.
+- Convolutional Neural Network (Supervised Learning)
+- Predicts age (exact or age group)
 
-The system classifies the chicken into one of three categories:
-- 🐣 Chick 
-- 🐥 Juvenile 
-- 🐔 Adult
-
- It also calculates the confidence level of the prediction.
+### Decision & Classification
+- Classifies into an exact age or age range
+- Calculates confidence level 
 
 ### Output Generation
-- Results are displayed to the user including:
-- Estimated age and category
-- Confidence level
-- Feeding or care recommendations
-- Option to save results to a file
+- Displays estimated age and confidence level
+- Shows age range or exact age
+- Displays possible skin conditions
+
