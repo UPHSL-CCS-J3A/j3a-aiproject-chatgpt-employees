@@ -13,11 +13,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 os.chdir(os.path.join(os.path.dirname(__file__), 'src'))
 
 # Import and run the UI
-from ui import GenderAgeDetectorUI
 import tkinter as tk
+from ui import GenderAgeSkinDetectorUI
 
 if __name__ == "__main__":
-    print("Starting Gender & Age Detection UI...")
     root = tk.Tk()
-    app = GenderAgeDetectorUI(root)
+    app = GenderAgeSkinDetectorUI(root)
     root.mainloop()
