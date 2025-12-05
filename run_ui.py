@@ -22,6 +22,7 @@ class FaceAgeDetectorUI:
         self.webcam_active = False
         self.cap = None
         self.webcam_thread = None
+        self.show_diversity = False
         
         self.style = ttk.Style()
         self.configure_style()
@@ -86,7 +87,17 @@ class FaceAgeDetectorUI:
         self.results_label = tk.Label(results_container, text="Age Detection will display here", bg="#ffeaa7", fg="#2c3e50", font=("Segoe UI", 12), relief=tk.FLAT, height=8, width=40, anchor="nw", justify="left", padx=5, pady=5)
         self.results_label.pack(pady=(0, 10), fill=tk.BOTH, expand=True)
         
-        self.info_label = tk.Label(results_container, text="Skin Condition Detection will display here", bg="#dda0dd", fg="#2c3e50", font=("Segoe UI", 12), relief=tk.FLAT, height=8, width=40, anchor="nw", justify="left", padx=5, pady=5)
+        # Info panel with button
+        info_panel = tk.Frame(results_container, bg="#dda0dd")
+        info_panel.pack(fill=tk.BOTH, expand=True)
+        
+        # Diversity analysis button in the pink panel
+        self.diversity_btn = tk.Button(info_panel, text="Show Diversity Analysis", font=("Segoe UI", 10, "bold"), 
+                                      bg="#c48cc4", fg="#2c3e50", relief=tk.FLAT, 
+                                      command=self.toggle_diversity_display)
+        self.diversity_btn.pack(pady=5)
+        
+        self.info_label = tk.Label(info_panel, text="", bg="#dda0dd", fg="#2c3e50", font=("Segoe UI", 12), relief=tk.FLAT, height=6, width=40, anchor="nw", justify="left", padx=5, pady=5)
         self.info_label.pack(fill=tk.BOTH, expand=True)
         
         # Sample Images
@@ -105,8 +116,195 @@ class FaceAgeDetectorUI:
                 clean_name = os.path.basename(sample).replace('.jpg', '').replace('1', '').capitalize()
                 ttk.Button(btn_row, text=clean_name, command=lambda s=sample: self.load_sample(s)).pack(side=tk.LEFT, padx=5)
 
+    def preprocess_for_diversity(self, frame):
+        """Adaptive preprocessing for different ethnicities, skin tones, and lighting"""
+        # Convert to LAB color space for better skin tone handling
+        lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        
+        # Adaptive histogram equalization for lighting normalization
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        l = clahe.apply(l)
+        
+        # Merge back and convert to BGR
+        enhanced = cv2.merge([l, a, b])
+        enhanced = cv2.cvtColor(enhanced, cv2.COLOR_LAB2BGR)
+        
+        # Gamma correction for different lighting conditions
+        gamma = self.estimate_gamma(frame)
+        enhanced = self.adjust_gamma(enhanced, gamma)
+        
+        return enhanced
+    
+    def estimate_gamma(self, frame):
+        """Estimate optimal gamma based on image brightness"""
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        mean_brightness = np.mean(gray)
+        
+        if mean_brightness < 80:  # Dark image
+            return 0.7
+        elif mean_brightness > 180:  # Bright image
+            return 1.3
+        else:  # Normal lighting
+            return 1.0
+    
+    def adjust_gamma(self, frame, gamma):
+        """Apply gamma correction"""
+        inv_gamma = 1.0 / gamma
+        table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+        return cv2.LUT(frame, table)
+    
+    def analyze_diversity_features(self, frame, face_crop):
+        """Analyze ethnicity, skin tone, skin condition, and lighting"""
+        # Estimate ethnicity based on facial features and skin tone
+        ethnicity = self.estimate_ethnicity(face_crop)
+        
+        # Analyze skin tone using ITA (Individual Typology Angle)
+        skin_tone = self.analyze_skin_tone(face_crop)
+        
+        # Detect skin condition
+        skin_condition = self.detect_skin_condition(face_crop)
+        
+        # Assess lighting conditions
+        lighting = self.assess_lighting(frame)
+        
+        return {
+            'ethnicity': ethnicity,
+            'skin_tone': skin_tone,
+            'skin_condition': skin_condition,
+            'lighting': lighting
+        }
+    
+    def estimate_ethnicity(self, face_crop):
+        """Estimate ethnicity based on facial features and skin tone"""
+        # Convert to different color spaces for analysis
+        hsv = cv2.cvtColor(face_crop, cv2.COLOR_BGR2HSV)
+        lab = cv2.cvtColor(face_crop, cv2.COLOR_BGR2LAB)
+        
+        # Analyze skin tone in face region
+        h, s, v = cv2.split(hsv)
+        l, a, b = cv2.split(lab)
+        
+        # Calculate average values
+        avg_hue = np.mean(h)
+        avg_lightness = np.mean(l)
+        avg_a = np.mean(a)
+        avg_b = np.mean(b)
+        
+        # Simple ethnicity estimation based on skin tone characteristics
+        if avg_lightness > 160 and avg_a < 135:
+            return "Caucasian"
+        elif avg_lightness < 100 and avg_a > 130:
+            return "African"
+        elif avg_hue > 10 and avg_hue < 25 and avg_lightness > 120:
+            return "Asian"
+        elif avg_b > 135 and avg_lightness > 110:
+            return "Hispanic/Latino"
+        elif avg_lightness > 130 and avg_a > 125:
+            return "Middle Eastern"
+        else:
+            return "Mixed/Other"
+    
+    def analyze_skin_tone(self, face_crop):
+        """Analyze skin tone using small cheek pixel samples"""
+        h, w = face_crop.shape[:2]
+        
+        # Very specific small cheek areas (10x10 pixel patches)
+        patch_size = 10
+        
+        # Left cheek - small patch in middle of left cheek area
+        left_y = int(h * 0.5)  # Middle height
+        left_x = int(w * 0.25)  # Left side
+        left_cheek = face_crop[left_y:left_y+patch_size, left_x:left_x+patch_size]
+        
+        # Right cheek - small patch in middle of right cheek area
+        right_y = int(h * 0.5)  # Middle height
+        right_x = int(w * 0.75)  # Right side
+        right_cheek = face_crop[right_y:right_y+patch_size, right_x:right_x+patch_size]
+        
+        # Get average RGB from both small cheek patches
+        left_avg = np.mean(left_cheek.reshape(-1, 3), axis=0)
+        right_avg = np.mean(right_cheek.reshape(-1, 3), axis=0)
+        
+        # Average both cheeks
+        avg_b, avg_g, avg_r = ((left_avg + right_avg) / 2).astype(int)
+        
+        # Convert hex to single value for comparison
+        hex_value = (avg_r << 16) + (avg_g << 8) + avg_b
+        
+        # Balanced skin tone classification
+        avg_total = (avg_r + avg_g + avg_b) / 3
+        
+        # White skin: Light tones
+        if avg_total > 170 and avg_r > 150 and avg_g > 140:
+            return "White"
+        # Black skin: Dark tones
+        elif avg_total < 100 and avg_r < 110:
+            return "Black"
+        # Brown skin: Medium tones with warm characteristics
+        elif 100 <= avg_total <= 170:
+            return "Brown"
+        # Edge cases based on brightness
+        elif avg_total > 170:
+            return "White"
+        else:
+            return "Black"
+    
+
+    def assess_lighting(self, frame):
+        """Assess lighting conditions"""
+        # Convert to grayscale
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # Calculate brightness statistics
+        mean_brightness = np.mean(gray)
+        brightness_std = np.std(gray)
+        
+        # Assess lighting quality
+        if mean_brightness < 60:
+            lighting_level = "Low Light"
+        elif mean_brightness > 200:
+            lighting_level = "Bright Light"
+        else:
+            lighting_level = "Normal Light"
+        
+        # Assess uniformity
+        if brightness_std > 60:
+            uniformity = "Uneven"
+        elif brightness_std > 40:
+            uniformity = "Moderate"
+        else:
+            uniformity = "Even"
+        
+        return f"{lighting_level}, {uniformity}"
+    
+    def detect_skin_condition(self, face_crop):
+        """Detect basic skin conditions"""
+        # Convert to grayscale for texture analysis
+        gray = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
+        
+        # Calculate texture variance (higher = more texture/roughness)
+        texture_var = np.var(cv2.Laplacian(gray, cv2.CV_64F))
+        
+        # Analyze color uniformity
+        hsv = cv2.cvtColor(face_crop, cv2.COLOR_BGR2HSV)
+        s_std = np.std(hsv[:,:,1])  # Saturation standard deviation
+        
+        # Simple condition estimation
+        if texture_var > 800 and s_std > 30:
+            return "Textured/Acne-prone"
+        elif texture_var > 500:
+            return "Slightly textured"
+        elif s_std < 15:
+            return "Smooth/Clear"
+        else:
+            return "Normal"
+
     def detect_age_gender(self, frame):
         try:
+            # Apply adaptive preprocessing
+            processed_frame = self.preprocess_for_diversity(frame)
+            
             h, w = frame.shape[:2]
             models_dir = os.path.join(os.path.dirname(__file__), "models")
             face_model = os.path.join(models_dir, "opencv_face_detector_uint8.pb")
@@ -114,7 +312,8 @@ class FaceAgeDetectorUI:
             
             face_net = cv2.dnn.readNet(face_model, face_proto)
             
-            blob = cv2.dnn.blobFromImage(frame, 1.0, (300, 300), [104, 117, 123], True, False)
+            # Use processed frame for better detection
+            blob = cv2.dnn.blobFromImage(processed_frame, 1.0, (300, 300), [104, 117, 123], True, False)
             face_net.setInput(blob)
             detections = face_net.forward()
             
@@ -231,6 +430,10 @@ class FaceAgeDetectorUI:
                     # Clean white text with anti-aliasing
                     cv2.putText(frame, text, (label_x, label_y), cv2.FONT_HERSHEY_SIMPLEX, text_scale, (255, 255, 255), thickness, cv2.LINE_AA)
                     
+                    # Analyze diversity features
+                    diversity_info = self.analyze_diversity_features(frame, face_crop)
+                    self.diversity_results = diversity_info  # Store for info display
+                    
                     results.append(f"Face #{face_count}:\nEstimated Age: {estimated_age:.2f} years\nAge Group: {gender} {age_label}\nConfidence Level: {age_conf:.2f}%\n")
             
             return frame, results
@@ -296,7 +499,10 @@ class FaceAgeDetectorUI:
                 if results:
                     result_text = "\n".join(results)
                     self.results_label.configure(text=result_text)
-                    self.info_label.configure(text="Real-time webcam analysis active")
+                    
+                    # Keep info panel empty unless diversity button is clicked
+                    if not self.show_diversity:
+                        self.info_label.configure(text="")
                     
                     # Store face detection data for persistent display
                     last_face_data = self.extract_face_data(frame.copy())
@@ -365,7 +571,10 @@ class FaceAgeDetectorUI:
             if results:
                 result_text = "\n".join(results)
                 self.results_label.configure(text=result_text)
-                self.info_label.configure(text="Static image analysis complete")
+                
+                # Keep info panel empty unless diversity button is clicked
+                if not self.show_diversity:
+                    self.info_label.configure(text="")
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to process image: {str(e)}")
@@ -544,6 +753,23 @@ class FaceAgeDetectorUI:
             cv2.putText(frame, text, (label_x, label_y), cv2.FONT_HERSHEY_SIMPLEX, text_scale, (255, 255, 255), thickness, cv2.LINE_AA)
         
         return frame
+
+    def toggle_diversity_display(self):
+        """Toggle diversity analysis display on/off"""
+        self.show_diversity = not self.show_diversity
+        
+        # Update button text
+        if self.show_diversity:
+            self.diversity_btn.configure(text="Hide Diversity Analysis")
+            # Show diversity if data exists
+            if hasattr(self, 'diversity_results'):
+                diversity_text = f"Ethnicity: {self.diversity_results['ethnicity']}\nSkin Tone: {self.diversity_results['skin_tone']}\nSkin Condition: {self.diversity_results['skin_condition']}\nLighting: {self.diversity_results['lighting']}"
+                self.info_label.configure(text=diversity_text)
+            else:
+                self.info_label.configure(text="No diversity data available")
+        else:
+            self.diversity_btn.configure(text="Show Diversity Analysis")
+            self.info_label.configure(text="")
 
     def __del__(self):
         if self.webcam_active:
