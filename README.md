@@ -44,15 +44,19 @@ To address this issue, we propose an intelligent application that estimates the 
 
 ## **AI Concepts Used**
 
-The AI concepts implemented in FaceAge: Enhanced Facial Age Estimation Using Image Processing revolve around enabling the system to learn from facial images to accurately estimate a person's age. By utilizing supervised learning techniques, the system is trained on labeled facial data to detect and interpret age-related features, such as skin texture, wrinkles, facial geometry, and other visual cues. The core of the system is a Convolutional Neural Network (CNN), which learns patterns in the facial features that correspond to different age groups.
+The AI concepts implemented in FaceAge: Enhanced Facial Age Estimation Using Image Processing focus on using deep learning models for facial analysis to estimate age and predict skin-related features. The system leverages pre-trained Convolutional Neural Networks (CNNs) and Deep Neural Networks (DNNs) to detect faces, estimate age, and classify gender from input images.
 
-During training, the system applies optimization strategies like gradient descent to minimize errors and improve the model's predictive accuracy. Once trained, the system processes an input facial image, extracts relevant features, and either predicts the person's exact age or classifies them into an appropriate age range. This process ensures fast, consistent, and reliable results, reducing human bias and increasing efficiency across applications in areas such as security, healthcare, and digital services.
+Face detection is performed using the YuNet face detector (via an ONNX model), which accurately identifies facial regions in images. Once a face is detected, the system extracts the facial area and feeds it into the age and gender networks, which are trained to predict age groups and gender probabilities. Age estimation is calculated using a combination of classification outputs and probabilistic weighting to produce a more precise age estimate.
+
+The workflow demonstrates principles of supervised learning, as the pre-trained models were trained on labeled datasets of faces with corresponding age and gender information. Image preprocessing steps, such as resizing, normalization, and mean subtraction, are applied to ensure consistency with the training data.
+
+Additionally, the system is designed for real-time applications, supporting both image uploads and webcam input. While it does not perform model training within the application, it applies inference techniques, feature extraction, and pattern recognition to make accurate predictions on unseen images. The architecture demonstrates the integration of AI concepts, computer vision, and image processing to provide fast, reliable, and automated facial analysis for applications in digital services, security, and user profiling.
 
 _AI Concepts Used Summary:_
 
-- **Learning Agent** - The system learns from facial images to estimate age by analyzing patterns related to skin texture, wrinkles, and facial structure.
-- **Optimization Strategy**  - Implements optimization techniques (e.g., gradient descent) to minimize prediction errors and enhance model accuracy during training.
-- **Decision Component** - The system classifies individuals into age groups or predicts an exact age, offering reliable and fast age estimation for real-world applications.
+- **Learning Agent** - The system uses pre-trained deep neural networks to analyze facial images and estimate age by recognizing patterns related to skin texture, facial geometry, and age-related features. Although the app does not train the models itself, it applies learned representations for inference.
+- **Optimization Strategy**  - ImThe underlying models were trained using optimization techniques (e.g., gradient descent) on labeled facial datasets to minimize prediction errors and improve age and gender estimation accuracy.
+- **Decision Component** - The system detects faces, extracts facial features, and predicts the age group and gender. It computes an estimated age using probabilistic weighting, providing reliable, fast, and automated predictions suitable for real-time applications.
 
 ## **System Architecture Flowchart**
 
