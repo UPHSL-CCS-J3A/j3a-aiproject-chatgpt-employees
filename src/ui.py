@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from PIL import Image, ImageTk
+import numpy as np
 import cv2
 import os
 
@@ -19,6 +20,8 @@ class GenderAgeDetectorUI:
 
         # Create UI
         self.create_widgets()
+
+
 
     def configure_style(self):
         self.style.theme_use("clam")
@@ -48,6 +51,33 @@ class GenderAgeDetectorUI:
                              background="#1e1e1e"
                              )
 
+    def save_results(self):
+        try:
+            # Ask for a file path
+            file_path = filedialog.asksaveasfilename(
+                title="Save Results",
+                defaultextension=".txt",
+                filetypes=[("Text files", "*.txt")]
+            )
+            if not file_path:
+                return  # User cancelled
+
+            # Collect results from the labels
+            age_text = self.results_label.cget("text")
+            skin_text = self.info_label.cget("text")
+
+            # Write to file
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write("=== Age Detection Results ===\n")
+                f.write(age_text + "\n\n")
+                f.write("=== Skin Condition Results ===\n")
+                f.write(skin_text + "\n")
+
+            messagebox.showinfo("Saved", f"Results saved to {file_path}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save results: {str(e)}")
+
     def load_models(self):
         try:
             faceProto = "../models/opencv_face_detector.pbtxt"
@@ -58,12 +88,13 @@ class GenderAgeDetectorUI:
             genderModel = "../models/gender_net.caffemodel"
 
             self.MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
+
             self.ageList = [
             'Newborn (0-2)',
-            'Toddler (3-5)',
-            'Child (6-12)',
-            'Teen (13-19)',
-            'Young Adult (20-25)',
+            'Toddler (3-6)',
+            'Child (7-12)',
+            'Teen (13-18)',
+            'Young Adult (19-25)',
             'Adult (26-35)',
             'Middle Age (36-45)',
             'Mature (46-59)',
@@ -89,12 +120,67 @@ class GenderAgeDetectorUI:
         )
         title.pack(pady=20)
 
+        def save_results(self):
+            try:
+                # Ask for a file path
+                file_path = filedialog.asksaveasfilename(
+                    title="Save Results",
+                    defaultextension=".txt",
+                    filetypes=[("Text files", "*.txt")]
+                )
+                if not file_path:
+                    return  # User cancelled
+
+                # Collect results from the labels
+                age_text = self.results_label.cget("text")
+                skin_text = self.info_label.cget("text")
+
+                # Write to file
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write("=== Age Detection Results ===\n")
+                    f.write(age_text + "\n\n")
+                    f.write("=== Skin Condition Results ===\n")
+                    f.write(skin_text + "\n")
+
+                messagebox.showinfo("Saved", f"Results saved to {file_path}")
+
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save results: {str(e)}")
+
         # Button Bar --------------------------------
         button_frame = ttk.Frame(self.root, style="Modern.TFrame")
         button_frame.pack(pady=5)
 
         ttk.Button(button_frame, text="Upload Image", command=self.upload_image).pack(side=tk.LEFT, padx=10)
         ttk.Button(button_frame, text="Open Webcam", command=self.open_webcam).pack(side=tk.LEFT, padx=10)
+        ttk.Button(button_frame, text="Save Results", command=self.save_results).pack(side=tk.LEFT, padx=10)
+
+        def save_results(self):
+            try:
+                # Ask for a file path
+                file_path = filedialog.asksaveasfilename(
+                    title="Save Results",
+                    defaultextension=".txt",
+                    filetypes=[("Text files", "*.txt")]
+                )
+                if not file_path:
+                    return  # User cancelled
+
+                # Collect results from the labels
+                age_text = self.results_label.cget("text")
+                skin_text = self.info_label.cget("text")
+
+                # Write to file
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write("=== Age Detection Results ===\n")
+                    f.write(age_text + "\n\n")
+                    f.write("=== Skin Condition Results ===\n")
+                    f.write(skin_text + "\n")
+
+                messagebox.showinfo("Saved", f"Results saved to {file_path}")
+
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save results: {str(e)}")
 
         # Main content container
         main_content = ttk.Frame(self.root, style="Modern.TFrame")
@@ -119,7 +205,7 @@ class GenderAgeDetectorUI:
 
         self.results_label = tk.Label(
             results_container,
-            text="Results will appear here",
+            text="Age Detection will display here",
             bg="#111827",
             fg="#e5e7eb",
             font=("Segoe UI", 12),
@@ -135,7 +221,7 @@ class GenderAgeDetectorUI:
 
         self.info_label = tk.Label(
             results_container,
-            text="Additional info will appear here",
+            text="Skin Condition Detection will display here",
             bg="#1f2937",
             fg="#f3f4f6",
             font=("Segoe UI", 12),
@@ -196,66 +282,71 @@ class GenderAgeDetectorUI:
             if frame is None:
                 return None, "Could not read image"
 
-            padding = 20
-            resultImg, faceBoxes = self.highlightFace(self.faceNet, frame)
+            h, w = frame.shape[:2]
 
-            if not faceBoxes:
-                return resultImg, "No face detected"
+            # Load Face Detector (YuNet)
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            models_dir = os.path.join(base_dir, "..", "models")
+            MODEL_PATH = os.path.join(models_dir, "face_detection_yunet_2023mar.onnx")
+
+            face_detector = cv2.FaceDetectorYN.create(
+                model=MODEL_PATH,
+                config="",
+                input_size=(w, h),
+                score_threshold=0.6,
+                nms_threshold=0.3,
+                top_k=5000
+            )
+
+            faces = face_detector.detect(frame)
+
+            if faces[1] is None:
+                return frame, "No face detected"
 
             results = []
+            age_ranges = [(0, 2), (3, 5), (6, 12), (13, 19), (20, 25),
+                          (26, 35), (36, 45), (46, 59), (60, 100)]
+            midpoints = [(a + b) / 2 for (a, b) in age_ranges]
 
-            for faceBox in faceBoxes:
-                face = frame[max(0, faceBox[1] - padding):
-                             min(faceBox[3] + padding, frame.shape[0] - 1),
-                       max(0, faceBox[0] - padding):
-                       min(faceBox[2] + padding, frame.shape[1] - 1)]
+            for face in faces[1]:
+                x, y, w_box, h_box = map(int, face[:4])
+                padding = 20
+                face_crop = frame[
+                            max(0, y - padding):min(y + h_box + padding, frame.shape[0] - 1),
+                            max(0, x - padding):min(x + w_box + padding, frame.shape[1] - 1)
+                            ]
 
-                blob = cv2.dnn.blobFromImage(
-                    face, 1.0, (227, 227),
-                    self.MODEL_MEAN_VALUES, swapRB=False
-                )
+                blob = cv2.dnn.blobFromImage(face_crop, 1.0, (227, 227),
+                                             self.MODEL_MEAN_VALUES, swapRB=False)
 
-                # ----- Gender Prediction -----
+                # Gender
                 self.genderNet.setInput(blob)
                 genderPreds = self.genderNet.forward()
-                gender_index = genderPreds[0].argmax()
-                gender = self.genderList[gender_index]
-                gender_conf = float(genderPreds[0][gender_index]) * 100
+                gender_idx = int(genderPreds[0].argmax())
+                gender = self.genderList[gender_idx]
+                gender_conf = float(genderPreds[0][gender_idx] * 100)
 
-                # ----- Age Prediction -----
+                # Age
                 self.ageNet.setInput(blob)
                 agePreds = self.ageNet.forward()
-                # Compute weighted exact age
-                age_ranges = [(0, 2), (3, 5), (6, 12), (13, 19), (20, 25), (26, 35), (36, 45), (46, 59), (60, 100)]
-                midpoints = [(a + b) / 2 for (a, b) in age_ranges]
-
                 probs = agePreds[0]
-                estimated_age = sum(prob * mid for prob, mid in zip(probs, midpoints))
+                estimated_age = sum(p * m for p, m in zip(probs, midpoints))
+                age_idx = int(np.argmax(probs))
+                age_label = self.ageList[age_idx]
+                age_conf = float(probs[age_idx] * 100)
 
-                age_index = probs.argmax()
-                age_label = self.ageList[age_index]
-                age_conf = float(probs[age_index]) * 100
+                # Draw on image
+                cv2.rectangle(frame, (x, y), (x + w_box, y + h_box), (0, 255, 0), 2)
+                cv2.putText(frame, f"{gender}, {age_label}",
+                            (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
 
-                # ----- Add to results -----
                 results.append(
-                    f"Estimated Age: {estimated_age:.1f} years\n"
-                    f"Age Group: {gender} {age_label}\n" 
+                    f"Estimated Age: {estimated_age:.2f} years\n"
+                    f"Age Group: {gender} {age_label}\n"
                     f"Confidence Level: {age_conf:.2f}%\n"
                 )
 
-                # Draw on image
-                cv2.putText(
-                    resultImg,
-                    f'{gender}, {int(estimated_age)}',
-                    (faceBox[0], faceBox[1] - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.8,
-                    (0, 255, 255),
-                    2,
-                    cv2.LINE_AA
-                )
-
-            return resultImg, results
+            return frame, results
 
         except Exception as e:
             return None, f"Error: {str(e)}"
