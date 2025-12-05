@@ -122,6 +122,10 @@ class FaceAgeDetectorUI:
             age_ranges = [(0, 2), (3, 5), (6, 12), (13, 19), (20, 25), (26, 35), (36, 45), (46, 59), (60, 100)]
             midpoints = [(a + b) / 2 for (a, b) in age_ranges]
             
+            # Different colors for multiple faces
+            face_colors = [(0, 255, 0), (255, 0, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
+            face_count = 0
+            
             for i in range(detections.shape[2]):
                 confidence = detections[0, 0, i, 2]
                 if confidence > 0.7:
@@ -170,8 +174,9 @@ class FaceAgeDetectorUI:
                     age_label = self.ageList[age_idx]
                     age_conf = float(probs[age_idx] * 100)
                     
-                    # Modern styled face box with rounded corners effect
-                    box_color = (0, 255, 0)  # Green
+                    # Modern styled face box with different colors for multiple faces
+                    box_color = face_colors[face_count % len(face_colors)]
+                    face_count += 1
                     box_thickness = max(2, int(min(w, h) / 200))  # Scale box thickness
                     cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, box_thickness)
                     
@@ -199,8 +204,8 @@ class FaceAgeDetectorUI:
                         text_scale = 0.8
                         thickness = 2
                     
-                    # Prepare text
-                    text = f"{gender}, {age_label}"
+                    # Prepare text with face number
+                    text = f"Face#{face_count}: {gender}, {age_label}"
                     (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_DUPLEX, text_scale, thickness)
                     
                     # Smart label positioning - below the box with padding
@@ -223,10 +228,10 @@ class FaceAgeDetectorUI:
                     cv2.rectangle(frame, (label_x - bg_padding, label_y - text_h - bg_padding), 
                                 (label_x + text_w + bg_padding, label_y + bg_padding), box_color, max(1, box_thickness - 1))
                     
-                    # Clean white text
-                    cv2.putText(frame, text, (label_x, label_y), cv2.FONT_HERSHEY_DUPLEX, text_scale, (255, 255, 255), thickness)
+                    # Clean white text with anti-aliasing
+                    cv2.putText(frame, text, (label_x, label_y), cv2.FONT_HERSHEY_SIMPLEX, text_scale, (255, 255, 255), thickness, cv2.LINE_AA)
                     
-                    results.append(f"Estimated Age: {estimated_age:.2f} years\nAge Group: {gender} {age_label}\nConfidence Level: {age_conf:.2f}%\n")
+                    results.append(f"Face #{face_count}:\nEstimated Age: {estimated_age:.2f} years\nAge Group: {gender} {age_label}\nConfidence Level: {age_conf:.2f}%\n")
             
             return frame, results
         except Exception as e:
@@ -432,6 +437,10 @@ class FaceAgeDetectorUI:
             age_ranges = [(0, 2), (3, 5), (6, 12), (13, 19), (20, 25), (26, 35), (36, 45), (46, 59), (60, 100)]
             midpoints = [(a + b) / 2 for (a, b) in age_ranges]
             
+            # Different colors for multiple faces
+            face_colors = [(0, 255, 0), (255, 0, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
+            face_count = 0
+            
             for i in range(detections.shape[2]):
                 confidence = detections[0, 0, i, 2]
                 if confidence > 0.7:
@@ -477,9 +486,11 @@ class FaceAgeDetectorUI:
                     age_idx = int(np.argmax(probs))
                     age_label = self.ageList[age_idx]
                     
+                    face_count += 1
                     face_data.append({
                         'box': (x1, y1, x2, y2),
-                        'text': f"{gender}, {age_label}"
+                        'text': f"Face#{face_count}: {gender}, {age_label}",
+                        'color': face_colors[(face_count-1) % len(face_colors)]
                     })
             
             return face_data
@@ -492,9 +503,9 @@ class FaceAgeDetectorUI:
         for face in face_data:
             x1, y1, x2, y2 = face['box']
             text = face['text']
+            box_color = face['color']
             
             # Modern styled face box
-            box_color = (0, 255, 0)
             cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 3)
             
             # Corner accents
@@ -529,8 +540,8 @@ class FaceAgeDetectorUI:
             cv2.rectangle(frame, (label_x - 8, label_y - text_h - 8), (label_x + text_w + 8, label_y + 8), bg_color, -1)
             cv2.rectangle(frame, (label_x - 8, label_y - text_h - 8), (label_x + text_w + 8, label_y + 8), box_color, 2)
             
-            # Text
-            cv2.putText(frame, text, (label_x, label_y), cv2.FONT_HERSHEY_DUPLEX, text_scale, (255, 255, 255), thickness)
+            # Text with anti-aliasing
+            cv2.putText(frame, text, (label_x, label_y), cv2.FONT_HERSHEY_SIMPLEX, text_scale, (255, 255, 255), thickness, cv2.LINE_AA)
         
         return frame
 
