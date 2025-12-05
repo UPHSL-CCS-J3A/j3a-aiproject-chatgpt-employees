@@ -218,30 +218,19 @@ class FaceAgeDetectorUI:
 
     def webcam_loop(self):
         last_detection = 0
+        display_frame = None
+        
         while self.webcam_active:
             ret, frame = self.cap.read()
             if not ret:
                 break
             
             frame = cv2.flip(frame, 1)  # Flip horizontally
-            
             current_time = time.time()
-            if current_time - last_detection >= 1:  # Update every 1 second
-                result_frame, results = self.detect_age_gender(frame.copy())
-                
-                # Convert and display
-                result_rgb = cv2.cvtColor(result_frame, cv2.COLOR_BGR2RGB)
-                height, width = result_rgb.shape[:2]
-                if height > 400:
-                    ratio = 400 / height
-                    new_width = int(width * ratio)
-                    result_rgb = cv2.resize(result_rgb, (new_width, 400))
-                
-                pil_image = Image.fromarray(result_rgb)
-                photo = ImageTk.PhotoImage(pil_image)
-                
-                self.image_label.configure(image=photo, text="")
-                self.image_label.image = photo
+            
+            # Always show live feed, detect every 2 seconds
+            if current_time - last_detection >= 2:
+                display_frame, results = self.detect_age_gender(frame.copy())
                 
                 if results:
                     result_text = "\n".join(results)
@@ -249,8 +238,25 @@ class FaceAgeDetectorUI:
                     self.info_label.configure(text="Real-time webcam analysis active")
                 
                 last_detection = current_time
+            else:
+                # Show live feed without detection boxes
+                display_frame = frame
             
-            time.sleep(0.03)  # ~30 FPS
+            # Convert and display current frame
+            result_rgb = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
+            height, width = result_rgb.shape[:2]
+            if height > 400:
+                ratio = 400 / height
+                new_width = int(width * ratio)
+                result_rgb = cv2.resize(result_rgb, (new_width, 400))
+            
+            pil_image = Image.fromarray(result_rgb)
+            photo = ImageTk.PhotoImage(pil_image)
+            
+            self.image_label.configure(image=photo, text="")
+            self.image_label.image = photo
+            
+            time.sleep(0.05)  # ~20 FPS for smoother display
 
     def upload_image(self):
         if self.webcam_active:
