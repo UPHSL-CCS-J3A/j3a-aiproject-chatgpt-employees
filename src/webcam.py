@@ -1,16 +1,17 @@
-# Import required modules
 import cv2 as cv
-import time
-import argparse
+import numpy as np
 import os
+import time
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+capture_requested = False
+force_update = False   # NEW: forces age/gender refresh
 
 def draw_info_box(frame, text):
-    # Box settings
     font = cv.FONT_HERSHEY_SIMPLEX
     scale = 0.6
     thickness = 1
-
-    # Get text size
     lines = text.split("\n")
     width = 0
     height = 0
@@ -18,160 +19,206 @@ def draw_info_box(frame, text):
         (w, h), _ = cv.getTextSize(line, font, scale, thickness)
         width = max(width, w)
         height += h + 5
-
-    # Box position — bottom right
     x2 = frame.shape[1] - 10
     y2 = frame.shape[0] - 10
     x1 = x2 - width - 20
     y1 = y2 - height - 20
-
-    # Draw filled rectangle
     cv.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 0), -1)
     cv.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 255), 2)
-
-    # Write text
     y = y1 + 25
     for line in lines:
         cv.putText(frame, line, (x1 + 10, y), font, scale, (255, 255, 255), 1)
         y += 22
 
+def draw_button(frame, text="Capture", pos=(10, 10)):
+    x, y = pos
+    w, h = 120, 40
+    cv.rectangle(frame, (x, y), (x + w, y + h), (0, 128, 255), -1)
+    cv.putText(frame, text, (x + 10, y + 25), cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+    return (x, y, x + w, y + h)
 
-def getFaceBox(net, frame, conf_threshold=0.7):
-    frameOpencvDnn = frame.copy()
-    frameHeight = frameOpencvDnn.shape[0]
-    frameWidth = frameOpencvDnn.shape[1]
-    blob = cv.dnn.blobFromImage(frameOpencvDnn, 1.0, (300, 300), [104, 117, 123], True, False)
+def on_mouse(event, x, y, flags, param):
+    global capture_requested
+    if event == cv.EVENT_LBUTTONDOWN:
+        button_x1, button_y1, button_x2, button_y2 = param['button_coords']
+        if button_x1 <= x <= button_x2 and button_y1 <= y <= button_y2:
+            capture_requested = True
 
-    net.setInput(blob)
-    detections = net.forward()
-    bboxes = []
-    for i in range(detections.shape[2]):
-        confidence = detections[0, 0, i, 2]
-        if confidence > conf_threshold:
-            x1 = int(detections[0, 0, i, 3] * frameWidth)
-            y1 = int(detections[0, 0, i, 4] * frameHeight)
-            x2 = int(detections[0, 0, i, 5] * frameWidth)
-            y2 = int(detections[0, 0, i, 6] * frameHeight)
-            bboxes.append([x1, y1, x2, y2])
-            cv.rectangle(frameOpencvDnn, (x1, y1), (x2, y2), (0, 255, 0), int(round(frameHeight/150)), 8)
-    return frameOpencvDnn, bboxes
+def main():
+    global capture_requested, force_update
+
+    # ------------------------------------------------------
+    # CREATE UPDATE BUTTON (WINDOW FLOATING ON TOP RIGHT)
+    # ------------------------------------------------------
+    root = tk.Tk()
+    root.title("Controls")
+    root.geometry("200x80+1500+10")  # move window to top-right
+    root.attributes('-topmost', True)
+
+    def update_now():
+        """Force update on next frame."""
+        global force_update
+        force_update = True
+
+    btn = ttk.Button(root, text="UPDATE", command=update_now)
+    btn.pack(pady=20)
+
+    # ------------------------------------------------------
+
+    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "FaceAge")
+    os.makedirs(desktop_path, exist_ok=True)
+
+    cap = cv.VideoCapture(0)
+    if not cap.isOpened():
+        root.withdraw()
+        messagebox.showerror("Error", "Webcam not detected!")
+        return
+
+    ret, frame = cap.read()
+    if not ret:
+        root.withdraw()
+        messagebox.showerror("Error", "Cannot read from webcam!")
+        return
+
+    h, w = frame.shape[:2]
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    MODELS_DIR = os.path.join(BASE_DIR, "..", "models")
+
+    # Face detector
+    MODEL_PATH = os.path.join(MODELS_DIR, "face_detection_yunet_2023mar.onnx")
+    face_detector = cv.FaceDetectorYN.create(
+        model=MODEL_PATH,
+        config="",
+        input_size=(w, h),
+        score_threshold=0.6,
+        nms_threshold=0.3,
+        top_k=5000
+    )
+
+    # Gender and Age models
+    AGE_MODEL = os.path.join(MODELS_DIR, "age_net.caffemodel")
+    AGE_PROTO = os.path.join(MODELS_DIR, "age_deploy.prototxt")
+    GENDER_MODEL = os.path.join(MODELS_DIR, "gender_net.caffemodel")
+    GENDER_PROTO = os.path.join(MODELS_DIR, "gender_deploy.prototxt")
+
+    MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
+    ageList = [
+        'Newborn (0-2)',
+        'Toddler (3-6)',
+        'Child (7-12)',
+        'Teen (13-18)',
+        'Young Adult (19-25)',
+        'Adult (26-35)',
+        'Middle Age (36-45)',
+        'Mature (46-59)',
+        'Senior (60-100)'
+    ]
+    genderList = ['Male', 'Female']
+
+    age_net = cv.dnn.readNet(AGE_MODEL, AGE_PROTO)
+    gender_net = cv.dnn.readNet(GENDER_MODEL, GENDER_PROTO)
+
+    padding = 20
+    prev_detection_time = 0
+    last_results = {}
+
+    cv.namedWindow("FaceAge Webcam")
+
+    while True:
+        root.update()  # keep button responsive
+
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        h, w = frame.shape[:2]
+        face_detector.setInputSize((w, h))
+        faces = face_detector.detect(frame)
+
+        # limit to one face
+        if faces[1] is not None and len(faces[1]) > 0:
+            faces = (faces[0], faces[1][:1])
+
+        current_time = time.time()
+
+        if faces[1] is not None:
+            for i, face in enumerate(faces[1]):
+                x, y, w_box, h_box = map(int, face[:4])
+
+                # crop
+                face_crop = frame[max(0, y - padding):min(y + h_box + padding, frame.shape[0] - 1),
+                                  max(0, x - padding):min(x + w_box + padding, frame.shape[1] - 1)]
+
+                # ✔ Update when 1 sec passed OR UPDATE button pressed
+                if (current_time - prev_detection_time >= 1) or force_update:
+                    force_update = False
+
+                    blob = cv.dnn.blobFromImage(face_crop, 1.0, (227, 227), MODEL_MEAN_VALUES, swapRB=False)
+
+                    # Gender
+                    gender_net.setInput(blob)
+                    genderPreds = gender_net.forward()
+                    gender_idx = int(genderPreds[0].argmax())
+                    gender = genderList[gender_idx]
+                    gender_conf = float(genderPreds[0][gender_idx] * 100)
+
+                    # Age
+                    age_net.setInput(blob)
+                    agePreds = age_net.forward()
+                    probs = agePreds[0]
+
+                    midpoints = [(0+2)/2, (3+5)/2, (6+12)/2, (13+19)/2, (20+25)/2, (26+35)/2,
+                                 (36+45)/2, (46+59)/2, (60+100)/2]
+                    estimated_age = sum(p*m for p, m in zip(probs, midpoints))
+
+                    age_idx = int(np.argmax(probs))
+                    age_label = ageList[age_idx]
+                    age_conf = float(probs[age_idx] * 100)
+
+                    last_results[i] = {
+                        'gender': gender,
+                        'gender_conf': gender_conf,
+                        'age_label': age_label,
+                        'age_conf': age_conf,
+                        'estimated_age': estimated_age
+                    }
+
+                    prev_detection_time = current_time
+
+        # draw face + info box
+        if faces[1] is not None:
+            for i, face in enumerate(faces[1]):
+                x, y, w_box, h_box = map(int, face[:4])
+                cv.rectangle(frame, (x, y), (x + w_box, y + h_box), (0, 255, 0), 2)
+
+                if i in last_results:
+                    res = last_results[i]
+                    label = f"{res['gender']}, {res['age_label']}"
+                    cv.putText(frame, label, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+
+                    text = f"Gender Confidence: {res['gender_conf']:.2f}%\n" \
+                           f"Age Confidence: {res['age_conf']:.2f}%\n" \
+                           f"Exact Age: {res['estimated_age']:.2f} yrs"
+                    draw_info_box(frame, text)
+
+        # capture button
+        button_coords = draw_button(frame)
+        cv.setMouseCallback("FaceAge Webcam", on_mouse, {'button_coords': button_coords})
+
+        if capture_requested:
+            filename = os.path.join(desktop_path, f"capture_{int(time.time())}.png")
+            cv.imwrite(filename, frame)
+            print(f"Photo saved: {filename}")
+            capture_requested = False
+
+        cv.imshow("FaceAge Webcam", frame)
+        key = cv.waitKey(1) & 0xFF
+        if key == 27:
+            break
+
+    cap.release()
+    cv.destroyAllWindows()
 
 
-parser = argparse.ArgumentParser(description='Use this script to run age and gender recognition using OpenCV.')
-parser.add_argument('--input', help='Path to input image or video file. Skip this argument to capture frames from a camera.')
-
-args = parser.parse_args()
-
-base_dir = os.path.dirname(os.path.abspath(__file__))
-models_dir = os.path.join(base_dir, "..", "models")
-
-faceProto = os.path.join(models_dir, "opencv_face_detector.pbtxt")
-faceModel = os.path.join(models_dir, "opencv_face_detector_uint8.pb")
-ageProto = os.path.join(models_dir, "age_deploy.prototxt")
-ageModel = os.path.join(models_dir, "age_net.caffemodel")
-genderProto = os.path.join(models_dir, "gender_deploy.prototxt")
-genderModel = os.path.join(models_dir, "gender_net.caffemodel")
-
-MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
-ageList = [
-    ' Newborn (0-2)',
-    ' Toddler (3-5)',
-    ' Child (6-12)',
-    ' Teen (13-19)',
-    ' Young Adult (20-25)',
-    ' Adult (26-35)',
-    ' Middle Age (36-45)',
-    ' Mature (46-59)',
-    ' Senior (60-100)'
-]
-genderList = ['Male', 'Female']
-
-# Load network
-ageNet = cv.dnn.readNet(ageModel, ageProto)
-genderNet = cv.dnn.readNet(genderModel, genderProto)
-faceNet = cv.dnn.readNet(faceModel, faceProto)
-
-# Open a video file or an image file or a camera stream
-cap = cv.VideoCapture(args.input if args.input else 0)
-padding = 20
-while True:
-    t = time.time()
-    hasFrame, frame = cap.read()
-    if not hasFrame:
-        break
-
-    frameFace, bboxes = getFaceBox(faceNet, frame)
-    if not bboxes:
-        print("No face Detected, Checking next frame")
-        continue
-
-    for bbox in bboxes:
-        face = frame[max(0,bbox[1]-padding):min(bbox[3]+padding,frame.shape[0]-1),
-                     max(0,bbox[0]-padding):min(bbox[2]+padding, frame.shape[1]-1)]
-
-        blob = cv.dnn.blobFromImage(face, 1.0, (227, 227), MODEL_MEAN_VALUES, swapRB=False)
-        # -------- GENDER PREDICTION --------
-        # -------- GENDER PREDICTION --------
-        genderNet.setInput(blob)
-        genderPreds = genderNet.forward()
-
-        gender_idx = int(genderPreds[0].argmax())
-        gender = genderList[gender_idx]
-        gender_conf = float(genderPreds[0][gender_idx] * 100)
-
-        # -------- AGE PREDICTION --------
-        ageNet.setInput(blob)
-        agePreds = ageNet.forward()
-
-        probs = [float(p) for p in agePreds[0]]
-        age_idx = int(np.argmax(probs)) if 'np' in globals() else int(probs.index(max(probs)))
-        age_label = ageList[age_idx]
-        age_conf = float(probs[age_idx] * 100)
-
-        # -------- ESTIMATED EXACT AGE (WEIGHTED MIDPOINTS) --------
-        # Define ranges matching your ageList order
-        age_ranges = [(0, 2), (3, 5), (6, 12), (13, 19), (20, 25), (26, 35), (36, 45), (46, 59), (60, 100)]
-        midpoints = [(a + b) / 2.0 for (a, b) in age_ranges]
-
-        # Weighted expected age
-        estimated_age = sum(p * m for p, m in zip(probs, midpoints))
-
-        # -------- PRINT TO CONSOLE --------
-        print(f"Gender: {gender}, conf = {gender_conf:.2f}%")
-        print(f"Age Group: {age_label}, conf = {age_conf:.2f}%")
-        print(f"Estimated Age: {estimated_age:.1f} years")
-
-        # -------- DRAW FACE LABEL --------
-        label = f"{gender}, {age_label}"
-        cv.putText(frameFace, label, (bbox[0], bbox[1] - 10),
-                   cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-
-        # -------- DRAW BOTTOM-RIGHT INFO BOX --------
-        info_text = (
-            f"Estimated Age: {estimated_age:.1f} years\n"
-            f"Age Group: {gender} {age_label}\n"
-            f"Confidence Level: {age_conf:.2f}%"
-        )
-        draw_info_box(frameFace, info_text)
-
-        cv.putText(frameFace, label, (bbox[0], bbox[1]-10),
-                   cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv.LINE_AA)
-
-    cv.imshow("Age Gender Demo", frameFace)
-
-    # Wait for 1ms and get key
-    key = cv.waitKey(1) & 0xFF
-
-    # ESC key closes webcam
-    if key == 27:
-        break
-
-    # Check if the OpenCV window has been closed
-    if cv.getWindowProperty("Age Gender Demo", cv.WND_PROP_AUTOSIZE) < 0:
-        break
-
-    print("time : {:.3f}".format(time.time() - t))
-
-cap.release()
-cv.destroyAllWindows()
-
+if __name__ == "__main__":
+    main()
