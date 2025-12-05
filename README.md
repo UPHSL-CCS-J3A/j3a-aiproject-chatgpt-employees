@@ -4,7 +4,7 @@
 - Follante, Adrian Paolo S.
 - Manalo, Ram Andrei M.
 - Ramos, Renzo Emmanuel V.
-- Unido, Jem Arden 
+- Unido, Jem Arden D.
 
 ## **Problem Description**
 
