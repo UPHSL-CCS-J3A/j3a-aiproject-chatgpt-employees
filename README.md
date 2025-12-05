@@ -1,85 +1,120 @@
-# **FaceAge: Enhanced Facial Age Estimation using Image Processing**
-
-### Members:
-- Follante, Adrian Paolo S.
-- Manalo, Ram Andrei M.
-- Ramos, Renzo Emmanuel V.
-- Unido, Jem Arden 
-
-## **Problem Description**
-
-Accurately determining a person’s age is important in various fields, such as identity verification, security protocols, healthcare assessments, and personalized digital services. However, current age estimation practices often rely on manual visual inspection of facial features, which can be time-consuming, subjective, and inconsistent. This can lead to inefficient decision-making and unreliable age estimation systems.
-
-## **Proposed Solution Overview**
-
-To address this issue, we propose an intelligent application that estimates the age of human faces through image analysis. The system will utilize a Convolutional Neural Network (CNN) to automatically extract and analyze visual features such as wrinkles, skin texture, bone structure, and facial geometry. By applying deep learning techniques, the application aims to deliver accurate, fast, and consistent age estimations, reducing human error and enhancing productivity in various operations. As an extra feature, we also added a skin condition detection feature, which could help in predicting possible skin diseases that a person may have.
-
-## **PEAS Model**
-### Performance Measure
-- Accuracy of predicted age compared to actual age
-- Classify the human face into their predicted age category: Infant (Birth to 12 months), Toddler (1-3), Child (4-12) Teen (13-19), Adult (20-59), and Senior (60 and above)
-- Fast processing time of image analyzation using webcam and uploaded images
-- Ability to process different ethnicities, skin conditions, skin tones, and lighting conditions
-- High confidence score for each prediction
-
-### Environment
-- Virtual environment running on a computer or laptop
-- Accepts two input environments:
-- Real-time webcam feed
-- Uploaded facial image
+# Gender-and-Age-Detection   <img alt="GitHub" src="https://img.shields.io/github/license/smahesh29/Gender-and-Age-Detection">
 
 
-### Actuators
-- Displays the estimated age of the human
-- Shows age group classification
-- Displays confidence level of the prediction
-- Displays possible skin condition
-- Optionally saves the results to a file
+<h2>Objective :</h2>
+<p>To build a gender and age detector that can approximately guess the gender and age of the person (face) in a picture or through webcam.</p>
 
-### Sensors
-- Webcam stream for real-time face capture
-- Image uploaded manually by the user
-- Face detection system (Haar Cascade, HOG, CNN-based detectors)
-- Feature extraction tools (landmarks, embeddings, texture detectors)
+<h2>About the Project :</h2>
+<p>In this Python Project, I had used Deep Learning to accurately identify the gender and age of a person from a single image of a face. I used the models trained by <a href="https://talhassner.github.io/home/projects/Adience/Adience-data.html">Tal Hassner and Gil Levi</a>. The predicted gender may be one of ‘Male’ and ‘Female’, and the predicted age may be one of the following ranges- (0 – 2), (4 – 6), (8 – 12), (15 – 20), (25 – 32), (38 – 43), (48 – 53), (60 – 100) (8 nodes in the final softmax layer). It is very difficult to accurately guess an exact age from a single image because of factors like makeup, lighting, obstructions, and facial expressions. And so, I made this a classification problem instead of making it one of regression.</p>
 
-## **AI Concepts Used**
+<h2>Dataset :</h2>
+<p>For this python project, I had used the Adience dataset; the dataset is available in the public domain and you can find it <a href="https://www.kaggle.com/ttungl/adience-benchmark-gender-and-age-classification">here</a>. This dataset serves as a benchmark for face photos and is inclusive of various real-world imaging conditions like noise, lighting, pose, and appearance. The images have been collected from Flickr albums and distributed under the Creative Commons (CC) license. It has a total of 26,580 photos of 2,284 subjects in eight age ranges (as mentioned above) and is about 1GB in size. The models I used had been trained on this dataset.</p>
 
-The AI concepts implemented in FaceAge: Enhanced Facial Age Estimation Using Image Processing revolve around enabling the system to learn from facial images to accurately estimate a person's age. By utilizing supervised learning techniques, the system is trained on labeled facial data to detect and interpret age-related features, such as skin texture, wrinkles, facial geometry, and other visual cues. The core of the system is a Convolutional Neural Network (CNN), which learns patterns in the facial features that correspond to different age groups.
+<h2>Additional Python Libraries Required :</h2>
+<ul>
+  <li>OpenCV</li>
+  
+       pip install opencv-python
+</ul>
+<ul>
+ <li>argparse</li>
+  
+       pip install argparse
+</ul>
 
-During training, the system applies optimization strategies like gradient descent to minimize errors and improve the model's predictive accuracy. Once trained, the system processes an input facial image, extracts relevant features, and either predicts the person's exact age or classifies them into an appropriate age range. This process ensures fast, consistent, and reliable results, reducing human bias and increasing efficiency across applications in areas such as security, healthcare, and digital services.
+<h2>Project Structure :</h2>
+<ul>
+  <li><b>models/</b> - Contains all AI model files
+    <ul>
+      <li>opencv_face_detector.pbtxt & opencv_face_detector_uint8.pb - Face detection models</li>
+      <li>age_deploy.prototxt & age_net.caffemodel - Age prediction models</li>
+      <li>gender_deploy.prototxt & gender_net.caffemodel - Gender prediction models</li>
+    </ul>
+  </li>
+  <li><b>src/</b> - Source code files
+    <ul>
+      <li>detect.py - Original command line script</li>
+      <li>ui.py - Desktop GUI application</li>
+      <li>app.py - Web interface (Streamlit)</li>
+    </ul>
+  </li>
+  <li><b>sample_images/</b> - Sample images for testing</li>
+  <li><b>Example/</b> - Example output images</li>
+  <li>run_ui.py - Main launcher for desktop UI</li>
+  <li>run_ui.bat - Windows batch file launcher</li>
+ </ul>
+ <p>For face detection, we have a .pb file- this is a protobuf file (protocol buffer); it holds the graph definition and the trained weights of the model. We can use this to run the trained model. And while a .pb file holds the protobuf in binary format, one with the .pbtxt extension holds it in text format. These are TensorFlow files. For age and gender, the .prototxt files describe the network configuration and the .caffemodel file defines the internal states of the parameters of the layers.</p>
+ 
+ <h2>Usage :</h2>
+ 
+ <h3>🖥️ Desktop UI (Recommended)</h3>
+ <ul>
+  <li>Double-click <b>run_ui.bat</b> (Windows) or run <code>python run_ui.py</code></li>
+  <li>Click "Upload Image" to select your own image</li>
+  <li>Or click on sample images to test</li>
+  <li>Results will be displayed with detected faces highlighted</li>
+ </ul>
+ 
+ <h3>🌐 Web Interface</h3>
+ <ul>
+  <li>Navigate to src folder: <code>cd src</code></li>
+  <li>Run: <code>streamlit run app.py</code></li>
+  <li>Open browser to the displayed URL</li>
+ </ul>
+ 
+ <h3>⌨️ Command Line (Original)</h3>
+ <ul>
+  <li>Navigate to src folder: <code>cd src</code></li>
+  <li><b>For image detection:</b> <code>python detect.py --image ../sample_images/girl1.jpg</code></li>
+  <li><b>For webcam detection:</b> <code>python detect.py</code></li>
+  <li>Press <b>Ctrl + C</b> to stop webcam mode</li>
+ </ul>
 
-_AI Concepts Used Summary:_
+# Working:
+[![Watch the video](https://img.youtube.com/vi/ReeccRD21EU/0.jpg)](https://youtu.be/ReeccRD21EU)
 
-- **Learning Agent** - The system learns from facial images to estimate age by analyzing patterns related to skin texture, wrinkles, and facial structure.
-- **Optimization Strategy**  - Implements optimization techniques (e.g., gradient descent) to minimize prediction errors and enhance model accuracy during training.
-- **Decision Component** - The system classifies individuals into age groups or predicts an exact age, offering reliable and fast age estimation for real-world applications.
+<h2>Examples :</h2>
+<p><b>NOTE:- I downloaded the images from Google,if you have any query or problem i can remove them, i just used it for Educational purpose.</b></p>
 
-## **System Architecture Flowchart**
+    >python detect.py --image girl1.jpg
+    Gender: Female
+    Age: 25-32 years
+    
+<img src="Example/Detecting age and gender girl1.png">
 
-<img width="189" height="605" alt="image" src="https://github.com/user-attachments/assets/37bda7b3-c12e-488f-81f8-b87f03d05bac" />
+    >python detect.py --image girl2.jpg
+    Gender: Female
+    Age: 8-12 years
+    
+<img src="Example/Detecting age and gender girl2.png">
 
-### User Input
-- User Uploads Image or Webcam Feed
+    >python detect.py --image kid1.jpg
+    Gender: Male
+    Age: 4-6 years    
+    
+<img src="Example/Detecting age and gender kid1.png">
 
-### Image Preprocessing
-- Resize / Normalize
-- Face Detection (e.g., Haar, MTCNN)
+    >python detect.py --image kid2.jpg
+    Gender: Female
+    Age: 4-6 years  
+    
+<img src="Example/Detecting age and gender kid2.png">
 
-### Feature Extraction (CNN)
-A Convolutional Neural Network analyzes the image to detect and extract key features such as:
-- Detect facial features (wrinkles, skin texture, geometry)
-- Extract relevant visual patterns for age estimation
+    >python detect.py --image man1.jpg
+    Gender: Male
+    Age: 38-43 years
+    
+<img src="Example/Detecting age and gender man1.png">
 
-### Model Prediction
-- Convolutional Neural Network (Supervised Learning)
-- Predicts age (exact or age group)
+    >python detect.py --image man2.jpg
+    Gender: Male
+    Age: 25-32 years
+    
+<img src="Example/Detecting age and gender man2.png">
 
-### Decision & Classification
-- Classifies into an exact age or age range
-- Calculates confidence level 
-
-### Output Generation
-- Displays estimated age and confidence level
-- Shows age range or exact age
-- Displays possible skin conditions
-
+    >python detect.py --image woman1.jpg
+    Gender: Female
+    Age: 38-43 years
+    
+<img src="Example/Detecting age and gender woman1.png">
+              
