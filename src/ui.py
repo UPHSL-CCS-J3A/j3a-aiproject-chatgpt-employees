@@ -72,8 +72,12 @@ class GenderAgeSkinDetectorUI:
                 skin_model_path = "../models/skin_model.h5"
                 if os.path.exists(skin_model_path):
                     self.skinNet = load_model(skin_model_path)
-                    self.skin_classes = ["Normal", "Acne", "Eczema", "Rosacea"]
-                    print("Loaded skin diagnosis model")
+                    
+                    # --- 🛑 UPDATED SKIN TYPE CLASSES 🛑 ---
+                    # Indices match the alphabetical order: 0: Dry, 1: Normal, 2: Oily
+                    self.skin_classes = ["Dry", "Normal", "Oily"] 
+                    
+                    print("Loaded skin type classification model")
                 else:
                     self.skinNet = None
                     print("Skin model file not found. Skin diagnosis disabled.")
