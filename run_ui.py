@@ -130,6 +130,25 @@ class FaceAgeDetectorUI:
                     x2 = int(detections[0, 0, i, 5] * w)
                     y2 = int(detections[0, 0, i, 6] * h)
                     
+                    # Make box square
+                    box_w = x2 - x1
+                    box_h = y2 - y1
+                    size = max(box_w, box_h)
+                    
+                    # Center the square box
+                    center_x = (x1 + x2) // 2
+                    center_y = (y1 + y2) // 2
+                    x1 = center_x - size // 2
+                    y1 = center_y - size // 2
+                    x2 = x1 + size
+                    y2 = y1 + size
+                    
+                    # Ensure square stays within image bounds
+                    x1 = max(0, x1)
+                    y1 = max(0, y1)
+                    x2 = min(w, x2)
+                    y2 = min(h, y2)
+                    
                     padding = 20
                     face_crop = frame[max(0, y1-padding):min(y2+padding, h-1), max(0, x1-padding):min(x2+padding, w-1)]
                     
@@ -151,24 +170,61 @@ class FaceAgeDetectorUI:
                     age_label = self.ageList[age_idx]
                     age_conf = float(probs[age_idx] * 100)
                     
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    # Modern styled face box with rounded corners effect
+                    box_color = (0, 255, 0)  # Green
+                    box_thickness = max(2, int(min(w, h) / 200))  # Scale box thickness
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, box_thickness)
                     
-                    # Consistent text sizing based on image dimensions
-                    text_scale = min(w, h) / 800.0  # Scale based on image size
-                    text_scale = max(0.4, min(text_scale, 0.7))  # Limit scale between 0.4 and 0.7
-                    thickness = max(1, int(text_scale * 2))
+                    # Corner accents for modern look
+                    corner_len = max(15, int(min(w, h) / 30))
+                    corner_thickness = max(3, int(min(w, h) / 150))
+                    cv2.line(frame, (x1, y1), (x1 + corner_len, y1), box_color, corner_thickness)
+                    cv2.line(frame, (x1, y1), (x1, y1 + corner_len), box_color, corner_thickness)
+                    cv2.line(frame, (x2, y1), (x2 - corner_len, y1), box_color, corner_thickness)
+                    cv2.line(frame, (x2, y1), (x2, y1 + corner_len), box_color, corner_thickness)
+                    cv2.line(frame, (x1, y2), (x1 + corner_len, y2), box_color, corner_thickness)
+                    cv2.line(frame, (x1, y2), (x1, y2 - corner_len), box_color, corner_thickness)
+                    cv2.line(frame, (x2, y2), (x2 - corner_len, y2), box_color, corner_thickness)
+                    cv2.line(frame, (x2, y2), (x2, y2 - corner_len), box_color, corner_thickness)
                     
-                    # Prepare text with proper sizing
+                    # Fixed consistent text sizing based on image dimensions
+                    base_size = min(w, h)
+                    if base_size < 400:
+                        text_scale = 0.4
+                        thickness = 1
+                    elif base_size < 800:
+                        text_scale = 0.6
+                        thickness = 2
+                    else:
+                        text_scale = 0.8
+                        thickness = 2
+                    
+                    # Prepare text
                     text = f"{gender}, {age_label}"
-                    (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, text_scale, thickness)
+                    (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_DUPLEX, text_scale, thickness)
                     
-                    # Position text above box, ensure it stays within image bounds
-                    text_x = max(5, min(x1, w - text_w - 5))
-                    text_y = max(text_h + 5, y1 - 5)
+                    # Smart label positioning - below the box with padding
+                    padding = max(10, int(base_size / 50))
+                    label_x = x1
+                    label_y = y2 + text_h + padding
                     
-                    # Draw text background for better readability
-                    cv2.rectangle(frame, (text_x - 2, text_y - text_h - 2), (text_x + text_w + 2, text_y + 2), (0, 0, 0), -1)
-                    cv2.putText(frame, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, text_scale, (0, 255, 255), thickness)
+                    # Ensure label stays within bounds
+                    if label_y + padding > h:
+                        label_y = y1 - padding
+                    if label_x + text_w + (padding * 2) > w:
+                        label_x = w - text_w - (padding * 2)
+                    label_x = max(padding, label_x)
+                    
+                    # Modern label background with proper padding
+                    bg_padding = max(6, int(base_size / 80))
+                    bg_color = (50, 50, 50)  # Dark gray
+                    cv2.rectangle(frame, (label_x - bg_padding, label_y - text_h - bg_padding), 
+                                (label_x + text_w + bg_padding, label_y + bg_padding), bg_color, -1)
+                    cv2.rectangle(frame, (label_x - bg_padding, label_y - text_h - bg_padding), 
+                                (label_x + text_w + bg_padding, label_y + bg_padding), box_color, max(1, box_thickness - 1))
+                    
+                    # Clean white text
+                    cv2.putText(frame, text, (label_x, label_y), cv2.FONT_HERSHEY_DUPLEX, text_scale, (255, 255, 255), thickness)
                     
                     results.append(f"Estimated Age: {estimated_age:.2f} years\nAge Group: {gender} {age_label}\nConfidence Level: {age_conf:.2f}%\n")
             
@@ -218,7 +274,7 @@ class FaceAgeDetectorUI:
 
     def webcam_loop(self):
         last_detection = 0
-        display_frame = None
+        last_face_data = None  # Store face detection data
         
         while self.webcam_active:
             ret, frame = self.cap.read()
@@ -228,35 +284,40 @@ class FaceAgeDetectorUI:
             frame = cv2.flip(frame, 1)  # Flip horizontally
             current_time = time.time()
             
-            # Always show live feed, detect every 2 seconds
-            if current_time - last_detection >= 2:
-                display_frame, results = self.detect_age_gender(frame.copy())
+            # Detect every 3 seconds to reduce lag
+            if current_time - last_detection >= 3:
+                result_frame, results = self.detect_age_gender(frame.copy())
                 
                 if results:
                     result_text = "\n".join(results)
                     self.results_label.configure(text=result_text)
                     self.info_label.configure(text="Real-time webcam analysis active")
+                    
+                    # Store face detection data for persistent display
+                    last_face_data = self.extract_face_data(frame.copy())
                 
                 last_detection = current_time
-            else:
-                # Show live feed without detection boxes
-                display_frame = frame
             
-            # Convert and display current frame
-            result_rgb = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
-            height, width = result_rgb.shape[:2]
+            # Apply stored face data to current frame
+            if last_face_data:
+                frame = self.apply_face_overlay(frame, last_face_data)
+            
+            # Resize before conversion for better performance
+            height, width = frame.shape[:2]
             if height > 400:
                 ratio = 400 / height
                 new_width = int(width * ratio)
-                result_rgb = cv2.resize(result_rgb, (new_width, 400))
+                frame = cv2.resize(frame, (new_width, 400))
             
+            # Convert and display
+            result_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             pil_image = Image.fromarray(result_rgb)
             photo = ImageTk.PhotoImage(pil_image)
             
             self.image_label.configure(image=photo, text="")
             self.image_label.image = photo
             
-            time.sleep(0.05)  # ~20 FPS for smoother display
+            time.sleep(0.033)  # ~30 FPS
 
     def upload_image(self):
         if self.webcam_active:
@@ -354,6 +415,124 @@ class FaceAgeDetectorUI:
                 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save results: {str(e)}")
+
+    def extract_face_data(self, frame):
+        try:
+            h, w = frame.shape[:2]
+            models_dir = os.path.join(os.path.dirname(__file__), "models")
+            face_model = os.path.join(models_dir, "opencv_face_detector_uint8.pb")
+            face_proto = os.path.join(models_dir, "opencv_face_detector.pbtxt")
+            
+            face_net = cv2.dnn.readNet(face_model, face_proto)
+            blob = cv2.dnn.blobFromImage(frame, 1.0, (300, 300), [104, 117, 123], True, False)
+            face_net.setInput(blob)
+            detections = face_net.forward()
+            
+            face_data = []
+            age_ranges = [(0, 2), (3, 5), (6, 12), (13, 19), (20, 25), (26, 35), (36, 45), (46, 59), (60, 100)]
+            midpoints = [(a + b) / 2 for (a, b) in age_ranges]
+            
+            for i in range(detections.shape[2]):
+                confidence = detections[0, 0, i, 2]
+                if confidence > 0.7:
+                    x1 = int(detections[0, 0, i, 3] * w)
+                    y1 = int(detections[0, 0, i, 4] * h)
+                    x2 = int(detections[0, 0, i, 5] * w)
+                    y2 = int(detections[0, 0, i, 6] * h)
+                    
+                    # Make box square
+                    box_w = x2 - x1
+                    box_h = y2 - y1
+                    size = max(box_w, box_h)
+                    
+                    # Center the square box
+                    center_x = (x1 + x2) // 2
+                    center_y = (y1 + y2) // 2
+                    x1 = center_x - size // 2
+                    y1 = center_y - size // 2
+                    x2 = x1 + size
+                    y2 = y1 + size
+                    
+                    # Ensure square stays within image bounds
+                    x1 = max(0, x1)
+                    y1 = max(0, y1)
+                    x2 = min(w, x2)
+                    y2 = min(h, y2)
+                    
+                    padding = 20
+                    face_crop = frame[max(0, y1-padding):min(y2+padding, h-1), max(0, x1-padding):min(x2+padding, w-1)]
+                    
+                    blob = cv2.dnn.blobFromImage(face_crop, 1.0, (227, 227), self.MODEL_MEAN_VALUES, swapRB=False)
+                    
+                    # Gender
+                    self.genderNet.setInput(blob)
+                    genderPreds = self.genderNet.forward()
+                    gender_idx = int(genderPreds[0].argmax())
+                    gender = self.genderList[gender_idx]
+                    
+                    # Age
+                    self.ageNet.setInput(blob)
+                    agePreds = self.ageNet.forward()
+                    probs = agePreds[0]
+                    age_idx = int(np.argmax(probs))
+                    age_label = self.ageList[age_idx]
+                    
+                    face_data.append({
+                        'box': (x1, y1, x2, y2),
+                        'text': f"{gender}, {age_label}"
+                    })
+            
+            return face_data
+        except:
+            return None
+    
+    def apply_face_overlay(self, frame, face_data):
+        h, w = frame.shape[:2]
+        
+        for face in face_data:
+            x1, y1, x2, y2 = face['box']
+            text = face['text']
+            
+            # Modern styled face box
+            box_color = (0, 255, 0)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 3)
+            
+            # Corner accents
+            corner_len = 20
+            cv2.line(frame, (x1, y1), (x1 + corner_len, y1), box_color, 5)
+            cv2.line(frame, (x1, y1), (x1, y1 + corner_len), box_color, 5)
+            cv2.line(frame, (x2, y1), (x2 - corner_len, y1), box_color, 5)
+            cv2.line(frame, (x2, y1), (x2, y1 + corner_len), box_color, 5)
+            cv2.line(frame, (x1, y2), (x1 + corner_len, y2), box_color, 5)
+            cv2.line(frame, (x1, y2), (x1, y2 - corner_len), box_color, 5)
+            cv2.line(frame, (x2, y2), (x2 - corner_len, y2), box_color, 5)
+            cv2.line(frame, (x2, y2), (x2, y2 - corner_len), box_color, 5)
+            
+            # Text styling
+            text_scale = min(w, h) / 1000.0
+            text_scale = max(0.5, min(text_scale, 0.8))
+            thickness = max(1, int(text_scale * 2))
+            
+            (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_DUPLEX, text_scale, thickness)
+            
+            # Label positioning
+            label_x = x1
+            label_y = y2 + text_h + 15
+            
+            if label_y + 10 > h:
+                label_y = y1 - 10
+            if label_x + text_w + 20 > w:
+                label_x = w - text_w - 20
+            
+            # Label background
+            bg_color = (50, 50, 50)
+            cv2.rectangle(frame, (label_x - 8, label_y - text_h - 8), (label_x + text_w + 8, label_y + 8), bg_color, -1)
+            cv2.rectangle(frame, (label_x - 8, label_y - text_h - 8), (label_x + text_w + 8, label_y + 8), box_color, 2)
+            
+            # Text
+            cv2.putText(frame, text, (label_x, label_y), cv2.FONT_HERSHEY_DUPLEX, text_scale, (255, 255, 255), thickness)
+        
+        return frame
 
     def __del__(self):
         if self.webcam_active:
