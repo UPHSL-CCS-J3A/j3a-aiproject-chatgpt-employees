@@ -17,7 +17,7 @@ To address this issue, we propose an intelligent application that estimates the 
 ## **PEAS Model**
 ### Performance Measure
 - Accuracy of predicted age compared to actual age
-- Classify the human face into their predicted age category: Infant (Birth to 12 months), Toddler (1-3), Child (4-12) Teen (13-19), Adult (20-59), and Senior (60 and above)
+- Classify the human face into their predicted age category: Newborn (0 to 2 years old), Toddler (3-6), Child (7-12), Teen (13-18), Young Adult (19-25), Adult (26-35), Middle Age (36-45), Mature (46-59), and Senior (60 and above)
 - Fast processing time of image analyzation using webcam and uploaded images
 - Ability to process different ethnicities, skin conditions, skin tones, and lighting conditions
 - High confidence score for each prediction
