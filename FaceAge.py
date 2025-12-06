@@ -1,5 +1,5 @@
 """
-FaceAge: Enhanced Facial Age Estimation using Image Processing
+FaceAge: Enhanced Facial Age Estimation using Image Processing and Skin Type Detection
 """
 
 import tkinter as tk
@@ -10,6 +10,16 @@ import cv2
 import os
 import time
 import threading
+
+# Add TensorFlow/Keras imports for skin type model
+try:
+    from tensorflow.keras.models import load_model
+    import tensorflow as tf
+except ImportError:
+    load_model = None
+    tf = None
+    print("TensorFlow not installed. Skin Type Detection will be disabled.")
+
 
 class FaceAgeDetectorUI:
     def __init__(self, root):
@@ -35,10 +45,11 @@ class FaceAgeDetectorUI:
         self.style.configure("TLabel", background="#f8f9ff", foreground="#2c3e50", font=("Segoe UI", 11))
         self.style.configure("Modern.TFrame", background="#f8f9ff")
 
-    # Load the AI models for gender and age prediction
+    # Load the AI models for gender, age, and skin type prediction
     def load_models(self):
         try:
-            models_dir = os.path.join(os.path.dirname(__file__), "models")
+            # Determine models directory relative to the script location
+            models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
 
             # Normalize image input before prediction
             self.MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
@@ -49,9 +60,24 @@ class FaceAgeDetectorUI:
             age_model = os.path.join(models_dir, "age_net.caffemodel")
             gender_proto = os.path.join(models_dir, "gender_deploy.prototxt")
             gender_model = os.path.join(models_dir, "gender_net.caffemodel")
-            # Load the models into memory
+            
+            # Load the OpenCV models into memory
             self.ageNet = cv2.dnn.readNet(age_model, age_proto)
             self.genderNet = cv2.dnn.readNet(gender_model, gender_proto)
+
+            # Skin Type Model (TensorFlow/Keras) - NEW INTEGRATION
+            self.skinNet = None
+            self.skin_classes = ["Dry", "Normal", "Oily"] 
+            
+            if load_model is not None:
+                skin_model_path = os.path.join(models_dir, "skin_model.h5")
+                if os.path.exists(skin_model_path):
+                    self.skinNet = load_model(skin_model_path)
+                    print("Loaded skin type classification model.")
+                else:
+                    print(f"Skin model file not found at {skin_model_path}. Skin Type Detection disabled.")
+            else:
+                print("TensorFlow not available. Skin Type Detection disabled.")
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load models: {str(e)}")
@@ -59,7 +85,7 @@ class FaceAgeDetectorUI:
     # Creates elements for the UI
     def create_widgets(self):
         # Title
-        title = ttk.Label(self.root, text="FaceAge: Age & Skin Condition Detector", font=("Segoe UI", 24, "bold"), foreground="#6b73ff", background="#f8f9ff")
+        title = ttk.Label(self.root, text="FaceAge: Age & Skin Type Detector", font=("Segoe UI", 24, "bold"), foreground="#6b73ff", background="#f8f9ff")
         title.pack(pady=20)
 
         # Button Bar
@@ -93,13 +119,14 @@ class FaceAgeDetectorUI:
         info_panel = tk.Frame(results_container, bg="#dda0dd")
         info_panel.pack(fill=tk.BOTH, expand=True)
 
-        # Diversity analysis button in the pink panel
-        self.diversity_btn = tk.Button(info_panel, text="Show Diversity Analysis", font=("Segoe UI", 10, "bold"),
-                                      bg="#c48cc4", fg="#2c3e50", relief=tk.FLAT,
-                                      command=self.toggle_diversity_display)
+        # Diversity analysis button in the pink panel - RENAMED AND UPDATED
+        self.diversity_btn = tk.Button(info_panel, text="Show Skin Type and Diversity Analysis", font=("Segoe UI", 10, "bold"),
+                                       bg="#c48cc4", fg="#2c3e50", relief=tk.FLAT,
+                                       command=self.toggle_diversity_display)
         self.diversity_btn.pack(pady=5)
 
-        self.info_label = tk.Label(info_panel, text="", bg="#dda0dd", fg="#2c3e50", font=("Segoe UI", 12), relief=tk.FLAT, height=6, width=40, anchor="nw", justify="left", padx=5, pady=5)
+        self.info_label = tk.Label(info_panel, text="", 
+                                   bg="#dda0dd", fg="#2c3e50", font=("Segoe UI", 12), relief=tk.FLAT, height=6, width=40, anchor="nw", justify="left", padx=5, pady=5)
         self.info_label.pack(fill=tk.BOTH, expand=True)
 
         # Sample Images
@@ -114,9 +141,12 @@ class FaceAgeDetectorUI:
         samples = ['sample_images/girl1.jpg', 'sample_images/man1.jpg', 'sample_images/kid1.jpg', 'sample_images/woman1.jpg']
 
         for sample in samples:
-            if os.path.exists(sample):
+            # Adjust path if sample_images is directly in the root
+            corrected_sample_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), sample) if not os.path.exists(sample) else sample
+            
+            if os.path.exists(corrected_sample_path):
                 clean_name = os.path.basename(sample).replace('.jpg', '').replace('1', '').capitalize()
-                ttk.Button(btn_row, text=clean_name, command=lambda s=sample: self.load_sample(s)).pack(side=tk.LEFT, padx=5)
+                ttk.Button(btn_row, text=clean_name, command=lambda s=corrected_sample_path: self.load_sample(s)).pack(side=tk.LEFT, padx=5)
 
     # Improves the inputs for different skin tones, ethnicities, and lighting conditions
     def preprocess_for_diversity(self, frame):
@@ -156,14 +186,43 @@ class FaceAgeDetectorUI:
         table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
         return cv2.LUT(frame, table)
 
-    def analyze_diversity_features(self, frame, face_crop):
+    # NEW FUNCTION: Predicts Normal, Dry, or Oily skin type
+    def predict_skin_type(self, face_crop):
+        if self.skinNet is None:
+            return "N/A (Model Missing)"
+        
+        try:
+            # Preprocessing for the CNN model (must match training input size 128x128)
+            img = cv2.cvtColor(face_crop, cv2.COLOR_BGR2RGB)
+            img = cv2.resize(img, (128, 128))
+            img = img.astype("float32") / 255.0
+            img = np.expand_dims(img, axis=0) # Add batch dimension
+            
+            # Predict
+            preds = self.skinNet.predict(img, verbose=0) 
+            
+            # Get the index with the highest probability
+            idx = np.argmax(preds[0])
+            label = self.skin_classes[idx]
+            
+            # Show confidence
+            conf = float(np.max(preds[0])) * 100
+            
+            # Return prediction in format "Label (Confidence%)"
+            return f"{label} ({conf:.1f}%)"
+            
+        except Exception as e:
+            # print(f"Skin prediction error: {e}") # Uncomment for debugging
+            return "Error (Processing)"
+
+    def analyze_diversity_features(self, frame, face_crop, skin_type_result):
         # Estimate ethnicity based on facial features and skin tone
         ethnicity = self.estimate_ethnicity(face_crop)
 
         # Analyze skin tone using ITA (Individual Typology Angle)
         skin_tone = self.analyze_skin_tone(face_crop)
 
-        # Detect skin condition
+        # Detect rudimentary skin condition (Original feature)
         skin_condition = self.detect_skin_condition(face_crop)
 
         # Assess lighting conditions
@@ -172,7 +231,8 @@ class FaceAgeDetectorUI:
         return {
             'ethnicity': ethnicity,
             'skin_tone': skin_tone,
-            'skin_condition': skin_condition,
+            'skin_condition': skin_condition, # Original estimate
+            'skin_type': skin_type_result,    # New CNN prediction
             'lighting': lighting
         }
 
@@ -228,9 +288,6 @@ class FaceAgeDetectorUI:
 
         # Average both cheeks
         avg_b, avg_g, avg_r = ((left_avg + right_avg) / 2).astype(int)
-
-        # Convert hex to single value for comparison
-        hex_value = (avg_r << 16) + (avg_g << 8) + avg_b
 
         # Balanced skin tone classification
         avg_total = (avg_r + avg_g + avg_b) / 3
@@ -297,13 +354,14 @@ class FaceAgeDetectorUI:
         else:
             return "Normal"
 
+
     def detect_age_gender(self, frame):
         try:
             # Apply adaptive preprocessing
             processed_frame = self.preprocess_for_diversity(frame)
 
             h, w = frame.shape[:2]
-            models_dir = os.path.join(os.path.dirname(__file__), "models")
+            models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
             face_model = os.path.join(models_dir, "opencv_face_detector_uint8.pb")
             face_proto = os.path.join(models_dir, "opencv_face_detector.pbtxt")
 
@@ -369,6 +427,9 @@ class FaceAgeDetectorUI:
                     age_idx = int(np.argmax(probs))
                     age_label = self.ageList[age_idx]
                     age_conf = float(probs[age_idx] * 100)
+                    
+                    # 🛑 Skin Type Prediction (New)
+                    skin_type = self.predict_skin_type(face_crop)
 
                     # Modern styled face box with different colors for multiple faces
                     box_color = face_colors[face_count % len(face_colors)]
@@ -376,7 +437,7 @@ class FaceAgeDetectorUI:
                     box_thickness = max(2, int(min(w, h) / 200))  # Scale box thickness
                     cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, box_thickness)
 
-                    # Corner accents for modern look
+                    # Corner accents for modern look (Omitted for brevity)
                     corner_len = max(15, int(min(w, h) / 30))
                     corner_thickness = max(3, int(min(w, h) / 150))
                     cv2.line(frame, (x1, y1), (x1 + corner_len, y1), box_color, corner_thickness)
@@ -400,8 +461,8 @@ class FaceAgeDetectorUI:
                         text_scale = 0.8
                         thickness = 2
 
-                    # Prepare text with face number
-                    text = f"Face#{face_count}: {gender}, {age_label}"
+                    # Prepare text with face number, gender, and age (Overlay is clean)
+                    text = f"Face#{face_count}: {gender}, {age_label}" 
                     (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_DUPLEX, text_scale, thickness)
 
                     # Smart label positioning - below the box with padding
@@ -420,18 +481,24 @@ class FaceAgeDetectorUI:
                     bg_padding = max(6, int(base_size / 80))
                     bg_color = (50, 50, 50)  # Dark gray
                     cv2.rectangle(frame, (label_x - bg_padding, label_y - text_h - bg_padding),
-                                (label_x + text_w + bg_padding, label_y + bg_padding), bg_color, -1)
+                                  (label_x + text_w + bg_padding, label_y + bg_padding), bg_color, -1)
                     cv2.rectangle(frame, (label_x - bg_padding, label_y - text_h - bg_padding),
-                                (label_x + text_w + bg_padding, label_y + bg_padding), box_color, max(1, box_thickness - 1))
+                                  (label_x + text_w + bg_padding, label_y + bg_padding), box_color, max(1, box_thickness - 1))
 
                     # Clean white text with anti-aliasing
                     cv2.putText(frame, text, (label_x, label_y), cv2.FONT_HERSHEY_SIMPLEX, text_scale, (255, 255, 255), thickness, cv2.LINE_AA)
 
-                    # Analyze diversity features
-                    diversity_info = self.analyze_diversity_features(frame, face_crop)
+                    # Analyze diversity features (Pass skin_type result)
+                    diversity_info = self.analyze_diversity_features(frame, face_crop, skin_type) 
                     self.diversity_results = diversity_info  # Store for info display
 
-                    results.append(f"Face #{face_count}:\nEstimated Age: {estimated_age:.2f} years\nAge Group: {gender} {age_label}\nConfidence Level: {age_conf:.2f}%\n")
+                    # Update result panel text (Yellow box)
+                    results.append(
+                        f"Face #{face_count}:\n"
+                        f"Estimated Age: {estimated_age:.2f} years\n"
+                        f"Age Group: {gender} {age_label}\n"
+                        f"Confidence Level: {age_conf:.2f}%\n"
+                    )
 
             return frame, results
         except Exception as e:
@@ -500,7 +567,7 @@ class FaceAgeDetectorUI:
 
                     # Keep info panel empty unless diversity button is clicked
                     if not self.show_diversity:
-                        self.info_label.configure(text="")
+                        self.info_label.configure(text="Click button for Skin Type & Diversity details.")
 
                     # Store face detection data for persistent display
                     last_face_data = self.extract_face_data(frame.copy())
@@ -572,11 +639,11 @@ class FaceAgeDetectorUI:
                 result_text = "\n".join(results)
                 self.results_label.configure(text=result_text)
                 self.show_diversity = not self.show_diversity
-                self.diversity_btn.configure(text="Show Diversity Analysis")
+                self.diversity_btn.configure(text="Show Skin Type and Diversity Analysis")
 
                 # Keep info panel empty unless diversity button is clicked
                 if not self.show_diversity:
-                    self.info_label.configure(text="")
+                    self.info_label.configure(text="Click button for Skin Type & Diversity details.")
 
 
         except Exception as e:
@@ -637,7 +704,7 @@ class FaceAgeDetectorUI:
     def extract_face_data(self, frame):
         try:
             h, w = frame.shape[:2]
-            models_dir = os.path.join(os.path.dirname(__file__), "models")
+            models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
             face_model = os.path.join(models_dir, "opencv_face_detector_uint8.pb")
             face_proto = os.path.join(models_dir, "opencv_face_detector.pbtxt")
 
@@ -698,7 +765,7 @@ class FaceAgeDetectorUI:
                     probs = agePreds[0]
                     age_idx = int(np.argmax(probs))
                     age_label = self.ageList[age_idx]
-
+                    
                     face_count += 1
                     face_data.append({
                         'box': (x1, y1, x2, y2),
@@ -763,16 +830,29 @@ class FaceAgeDetectorUI:
 
         # Update button text
         if self.show_diversity:
-            self.diversity_btn.configure(text="Hide Diversity Analysis")
-            # Show diversity if data exists
+            self.diversity_btn.configure(text="Hide Skin Type and Diversity Analysis")
             if hasattr(self, 'diversity_results'):
-                diversity_text = f"Ethnicity: {self.diversity_results['ethnicity']}\nSkin Tone: {self.diversity_results['skin_tone']}\nSkin Condition: {self.diversity_results['skin_condition']}\nLighting: {self.diversity_results['lighting']}"
+                
+                results = self.diversity_results
+                skin_type_result = results.get('skin_type', 'N/A')
+                
+                # Build the complete text string, including all diversity features
+                diversity_text = (
+                    f"--- Skin & Facial Analysis ---\n\n"
+                    f"Predicted Skin Type: {skin_type_result}\n"
+                    f"(Model: Dry, Normal, Oily)\n\n"
+                    f"Ethnicity Estimate: {results.get('ethnicity', 'N/A')}\n"
+                    f"Skin Tone Estimate: {results.get('skin_tone', 'N/A')}\n"
+                    f"Lighting Quality: {results.get('lighting', 'N/A')}\n"
+                    f"Original Skin Condition: {results.get('skin_condition', 'N/A')}"
+                )
+                
                 self.info_label.configure(text=diversity_text)
             else:
-                self.info_label.configure(text="No diversity data available")
+                self.info_label.configure(text="No analysis data available. Run image or webcam detection first.")
         else:
-            self.diversity_btn.configure(text="Show Diversity Analysis")
-            self.info_label.configure(text="")
+            self.diversity_btn.configure(text="Show Skin Type and Diversity Analysis")
+            self.info_label.configure(text="Click button for Skin Type & Diversity details.")
 
     def __del__(self):
         if self.webcam_active:
